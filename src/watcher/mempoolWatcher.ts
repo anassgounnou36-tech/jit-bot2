@@ -2,6 +2,7 @@ import WebSocket from 'ws';
 import { ethers } from 'ethers';
 import { EventEmitter } from 'events';
 import { getLogger } from '../logging/logger';
+import { BloxrouteWatcher } from './bloxrouteWatcher';
 
 export interface PendingSwapDetected {
   candidateId: string;
@@ -18,7 +19,7 @@ export interface PendingSwapDetected {
   estimatedUsd: string;
   blockNumberSeen: number;
   timestamp: number;
-  provider: 'local-node' | 'alchemy' | 'blocknative';
+  provider: 'local-node' | 'alchemy' | 'blocknative' | 'bloxroute';
   decodedCall: {
     method: string;
     params: any;
@@ -58,6 +59,7 @@ export class MempoolWatcher extends EventEmitter {
   private ws: WebSocket | null = null;
   private provider: ethers.providers.WebSocketProvider;
   private fallbackProvider?: ethers.providers.JsonRpcProvider;
+  private bloxrouteWatcher?: BloxrouteWatcher;
   private logger: any;
   private config: any;
   private metrics: any;
@@ -105,12 +107,19 @@ export class MempoolWatcher extends EventEmitter {
     
     this.initializeTargetPools();
     
+    // Initialize bloXroute watcher if enabled
+    if (this.config.useBloxroute) {
+      this.bloxrouteWatcher = new BloxrouteWatcher(this.config, this.parseSwapTransaction.bind(this));
+      this.setupBloxrouteEventHandlers();
+    }
+    
     this.logger.info({
       msg: 'MempoolWatcher initialized',
       targetPoolsCount: this.targetPools.size,
       minSwapEth: config.minSwapEth,
       minSwapUsd: config.minSwapUsd,
-      allowReconstruct: config.allowReconstructRawTx
+      allowReconstruct: config.allowReconstructRawTx,
+      bloxrouteEnabled: config.useBloxroute
     });
   }
 
@@ -126,6 +135,40 @@ export class MempoolWatcher extends EventEmitter {
     this.logger.debug({
       msg: 'Target pools initialized',
       pools: Array.from(this.targetPools.keys())
+    });
+  }
+
+  private setupBloxrouteEventHandlers(): void {
+    if (!this.bloxrouteWatcher) return;
+
+    // Handle transaction seen metrics
+    this.bloxrouteWatcher.on('txSeen', (source: string) => {
+      this.incrementPendingCount(source);
+      if (this.metrics) {
+        this.metrics.incrementMempoolTxsSeen(source);
+      }
+    });
+
+    // Handle swap decoded metrics
+    this.bloxrouteWatcher.on('swapDecoded', (source: string) => {
+      if (this.metrics) {
+        this.metrics.incrementMempoolSwapsDecoded(source);
+      }
+    });
+
+    // Handle pending swap detected events
+    this.bloxrouteWatcher.on('PendingSwapDetected', (swapData: PendingSwapDetected) => {
+      // Check for deduplication
+      if (this.isTransactionSeen(swapData.txHash, 'bloxroute')) {
+        this.logger.debug({
+          msg: 'Duplicate transaction from bloXroute',
+          txHash: swapData.txHash
+        });
+        return;
+      }
+
+      // Re-emit the event for downstream processing
+      this.emit('PendingSwapDetected', swapData);
     });
   }
 
@@ -297,8 +340,14 @@ export class MempoolWatcher extends EventEmitter {
         activeSubscriptions.push('abi-fallback');
       }
 
-      // If neither is configured, fall back to standard subscription
-      if (!this.config.useAlchemyPendingTx && !this.config.useAbiPendingFallback) {
+      // Start bloXroute subscription if configured
+      if (this.config.useBloxroute && this.bloxrouteWatcher) {
+        promises.push(this.bloxrouteWatcher.start());
+        activeSubscriptions.push('bloxroute');
+      }
+
+      // If none are configured, fall back to standard subscription
+      if (!this.config.useAlchemyPendingTx && !this.config.useAbiPendingFallback && !this.config.useBloxroute) {
         promises.push(this.subscribeStandardPendingTransactions());
         activeSubscriptions.push('standard-pending');
       }
@@ -309,7 +358,7 @@ export class MempoolWatcher extends EventEmitter {
       this.logger.info({
         msg: 'Mempool watcher started successfully',
         subscriptions: activeSubscriptions,
-        deduplication: this.config.useAlchemyPendingTx && this.config.useAbiPendingFallback ? 'enabled' : 'disabled',
+        deduplication: (this.config.useAlchemyPendingTx + this.config.useAbiPendingFallback + this.config.useBloxroute > 1) ? 'enabled' : 'disabled',
         features: ['raw-tx-capture', 'uniswap-decoding', 'pool-matching'],
         logAllPendingTx: this.config.logAllPendingTx,
         pendingFeedWarnThreshold: this.config.pendingFeedWarnThresholdPerMin
@@ -332,6 +381,11 @@ export class MempoolWatcher extends EventEmitter {
     try {
       // Stop pending volume tracking
       this.stopPendingVolumeTracking();
+      
+      // Stop bloXroute watcher if initialized
+      if (this.bloxrouteWatcher) {
+        await this.bloxrouteWatcher.stop();
+      }
       
       if (this.provider) {
         await this.provider.destroy();

@@ -1,0 +1,77 @@
+{
+  "source": "bloxroute",
+  "subscription_params": {
+    "method": "subscribe",
+    "id": 1,
+    "params": {
+      "subscription": "pendingTxs",
+      "include": ["tx_hash", "tx_contents.to", "tx_contents.input", "tx_contents.from", "tx_contents.value"]
+    }
+  },
+  "sample_transaction": {
+    "tx_hash": "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+    "tx_contents": {
+      "to": "0xE592427A0AEce92De3Edee1F18E0157C05861564",
+      "from": "0x742d35Cc6634C0532925a3b8D3Ac6BF5dCBB34B0",
+      "value": "0x0",
+      "input": "0x414bf38900000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000080000000000000000000000000742d35cc6634c0532925a3b8d3ac6bf5dcbb34b00000000000000000000000000000000000000000000000000000000064f5a3ef00000000000000000000000000000000000000000000001b1ae4d6e2ef5000000000000000000000000000000000000000000000000000000000000000000000042c02aaa39b223fe8d0a0e5c4f27ead9083c756cc200271094b008aa00579c1307b0ef2c499ad98a8ce58e580000000000000000000000000000000000000000000000",
+      "gas": "0x33450",
+      "gas_price": "0x4a817c800",
+      "nonce": "0x123"
+    }
+  },
+  "parsed_swap_data": {
+    "candidateId": "blx_swap_1234",
+    "txHash": "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+    "poolAddress": "0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640",
+    "tokenIn": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+    "tokenOut": "0xa0b86a33e6dbcbfa6776bb7e7dd43e50b4b2dc17",
+    "amountIn": "2000000000000000000",
+    "amountInHuman": "2.0",
+    "feeTier": 500,
+    "direction": "token0->token1",
+    "estimatedUsd": "6420.50",
+    "blockNumberSeen": 19234567,
+    "timestamp": 1709123456,
+    "provider": "bloxroute",
+    "decodedCall": {
+      "method": "exactInputSingle",
+      "params": {
+        "tokenIn": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+        "tokenOut": "0xa0b86a33e6dbcbfa6776bb7e7dd43e50b4b2dc17",
+        "fee": 500,
+        "recipient": "0x742d35Cc6634C0532925a3b8D3Ac6BF5dCBB34B0",
+        "deadline": 1709123700,
+        "amountIn": "2000000000000000000",
+        "amountOutMinimum": "0",
+        "sqrtPriceLimitX96": "0"
+      }
+    }
+  },
+  "router_filtering": {
+    "supported_routers": [
+      {
+        "name": "SwapRouter",
+        "address": "0xE592427A0AEce92De3Edee1F18E0157C05861564"
+      },
+      {
+        "name": "SwapRouter02", 
+        "address": "0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45"
+      },
+      {
+        "name": "Universal Router",
+        "address": "0xEf1c6E67703c7BD7107eed8303Fbe6EC2554BF6B"
+      }
+    ]
+  },
+  "metrics_emitted": {
+    "mempool_txs_seen_total": {
+      "source": "bloxroute",
+      "value": 1
+    },
+    "mempool_swaps_decoded_total": {
+      "source": "bloxroute", 
+      "value": 1
+    }
+  }
+}

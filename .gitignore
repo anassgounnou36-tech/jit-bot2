@@ -18,3 +18,5 @@ reports/*.md
 !reports/fixture-*.json
 !reports/sample-pending-candidate.json
 !reports/sample-mempool-swap.json
+!reports/sample-bloxroute.json
+!reports/sample-pending-abi.json
