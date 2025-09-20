@@ -94,6 +94,11 @@ export interface JitBotConfig {
   // ABI-based pending transaction fallback
   useAbiPendingFallback: boolean;
   
+  // bloXroute mempool integration
+  useBloxroute: boolean;
+  bloxrouteWsUrl?: string;
+  bloxrouteAuthHeader?: string;
+  
   // Pending transaction volume debug mode
   logAllPendingTx: boolean;
   pendingFeedWarnThresholdPerMin: number;
@@ -270,6 +275,19 @@ export function loadConfig(): JitBotConfig {
   // ABI-based pending transaction fallback configuration
   const useAbiPendingFallback = parseBool(process.env.USE_ABI_PENDING_FALLBACK, true);
   
+  // bloXroute mempool integration configuration
+  const useBloxroute = parseBool(process.env.USE_BLOXROUTE, false);
+  const bloxrouteWsUrl = process.env.BLOXROUTE_WS_URL;
+  const bloxrouteAuthHeader = process.env.BLOXROUTE_AUTH_HEADER;
+  
+  // Validate bloXroute configuration if enabled
+  if (useBloxroute && !bloxrouteWsUrl) {
+    throw new Error('BLOXROUTE_WS_URL is required when USE_BLOXROUTE=true');
+  }
+  if (useBloxroute && !bloxrouteAuthHeader) {
+    throw new Error('BLOXROUTE_AUTH_HEADER is required when USE_BLOXROUTE=true');
+  }
+  
   // Pending transaction volume debug mode configuration
   const logAllPendingTx = parseBool(process.env.LOG_ALL_PENDING_TX, false);
   const pendingFeedWarnThresholdPerMin = parseInt(process.env.PENDING_FEED_WARN_THRESHOLD_PER_MIN || '100');
@@ -339,6 +357,9 @@ export function loadConfig(): JitBotConfig {
     maxBundlesPerBlock,
     useAlchemyPendingTx,
     useAbiPendingFallback,
+    useBloxroute,
+    bloxrouteWsUrl,
+    bloxrouteAuthHeader,
     logAllPendingTx,
     pendingFeedWarnThresholdPerMin,
     jitContractAddress,

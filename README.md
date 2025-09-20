@@ -542,19 +542,22 @@ ALLOW_RECONSTRUCT_RAW_TX=true
 npm run run
 ```
 
-### Dual Mode Operation
+### Multi-Source Operation
 
-When both Alchemy and ABI fallback are enabled, the bot runs both subscriptions in parallel with automatic deduplication:
+When multiple mempool sources are enabled, the bot runs all subscriptions in parallel with automatic deduplication:
 
 1. **Alchemy subscription** - filtered, fast, provider-specific
-2. **ABI fallback subscription** - comprehensive, universal, slower
-3. **Deduplication** - shared 5-minute TTL cache prevents duplicate processing
-4. **Source tracking** - metrics and logs track which path decoded each transaction
+2. **ABI fallback subscription** - comprehensive, universal, slower  
+3. **bloXroute subscription** - enterprise-grade, low-latency feed
+4. **Deduplication** - shared 5-minute TTL cache prevents duplicate processing
+5. **Source tracking** - metrics and logs track which path decoded each transaction
 
 Metrics include source labels to distinguish between capture methods:
 - `mempool_swaps_decoded_total{source="alchemy"}` - swaps from Alchemy subscription
 - `mempool_swaps_decoded_total{source="abi_fallback"}` - swaps from ABI fallback
+- `mempool_swaps_decoded_total{source="bloxroute"}` - swaps from bloXroute feed
 - `mempool_txs_seen_total{provider="abi_fallback"}` - total transactions processed by fallback
+- `mempool_txs_seen_total{provider="bloxroute"}` - total transactions from bloXroute
 
 ### Router Address Filtering
 
@@ -565,6 +568,71 @@ The bot automatically filters transactions sent to supported Uniswap router addr
 - `exactOutputSingle` - Single-hop exact output swap (NEW)
 - `exactOutput` - Multi-hop exact output swap with path encoding (NEW)
 - `multicall` - Batch transactions containing any of the above methods
+
+## 🚀 bloXroute Mempool Integration
+
+For enterprise-grade mempool monitoring with minimal latency, the bot supports integration with bloXroute's WebSocket feed for real-time pending transaction data.
+
+### Configuration
+
+Add the following variables to your `.env` file:
+
+```bash
+# Enable bloXroute integration
+USE_BLOXROUTE=true
+
+# bloXroute WebSocket endpoint
+BLOXROUTE_WS_URL=wss://eth.feed.blxrbdn.com
+
+# Your bloXroute authorization header (get from bloXroute dashboard)
+BLOXROUTE_AUTH_HEADER=<your-auth-header>
+```
+
+### Features
+
+- ✅ **Real-time pending transactions** - Direct feed from bloXroute's network infrastructure
+- ✅ **Uniswap router filtering** - Automatically filters for SwapRouter, SwapRouter02, and Universal Router
+- ✅ **Automatic deduplication** - Works alongside Alchemy and ABI fallback with built-in deduplication
+- ✅ **Source tracking** - Metrics and logs distinguish bloXroute transactions with `source="bloxroute"`
+- ✅ **Robust reconnection** - Exponential backoff and automatic reconnection on disconnects
+
+### Setup Guide
+
+1. **Create bloXroute Account**: Sign up for a free account at [bloXroute](https://bloxroute.com)
+2. **Get Credentials**: Copy your authorization header from the bloXroute dashboard
+3. **Configure Environment**: Update your `.env` file with the credentials above
+4. **Start Bot**: The bot will automatically connect and start receiving pending transactions
+
+Example configuration for maximum mempool coverage:
+
+```bash
+# Use all available sources with automatic deduplication
+USE_ALCHEMY_PENDING_TX=true
+USE_ABI_PENDING_FALLBACK=true
+USE_BLOXROUTE=true
+
+# bloXroute credentials
+BLOXROUTE_WS_URL=wss://eth.feed.blxrbdn.com
+BLOXROUTE_AUTH_HEADER=<your-auth-header>
+
+# Enable monitoring
+LOG_TARGET_POOL_SWAPS=true
+LOG_ALL_PENDING_TX=true
+```
+
+### Sample Output
+
+When enabled, you should see logs like:
+
+```json
+{"component":"mempool-watcher","msg":"bloXroute pending TX received","txHash":"0x...","router":"SwapRouter"}
+```
+
+And metrics including:
+- `mempool_txs_seen_total{source="bloxroute"}` - Total transactions received from bloXroute
+- `mempool_swaps_decoded_total{source="bloxroute"}` - Total swaps successfully decoded
+
+See `reports/sample-bloxroute.json` for example transaction data structure.
 
 ## 🔍 Pending Transaction Volume Debug Mode
 
@@ -579,7 +647,7 @@ Environment variables:
 
 ### Features
 
-- **Volume counting** - Counts all pending transactions from each source (alchemy, abi-fallback)
+- **Volume counting** - Counts all pending transactions from each source (alchemy, abi-fallback, bloxroute)
 - **Periodic logging** - Emits counts every 10 seconds and every 60 seconds
 - **Provider health warnings** - Warns if feed drops below threshold for 2 consecutive minutes
 - **Source labeling** - Distinguishes between different provider paths
@@ -598,8 +666,8 @@ npm run run
 ### Sample Output
 
 ```
-[INFO] Pending TX count (10s): 45 sources: {"abi-fallback": 45}
-[INFO] Pending TX count (60s): 267 sources: {"abi-fallback": 267}
+[INFO] Pending TX count (10s): 45 sources: {"abi-fallback": 32, "bloxroute": 13}
+[INFO] Pending TX count (60s): 267 sources: {"abi-fallback": 189, "bloxroute": 78}
 [WARN] ⚠️ Provider feed is too low, consider using Erigon/Nethermind or upgraded RPC plan
 ```
 
