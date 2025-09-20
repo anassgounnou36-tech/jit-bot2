@@ -209,6 +209,7 @@ export class BloxrouteWatcher extends EventEmitter {
         gasPrice: ethers.BigNumber.from(pendingTx.tx_contents.gas_price || '0'),
         gasLimit: ethers.BigNumber.from(pendingTx.tx_contents.gas || '0'),
         nonce: parseInt(pendingTx.tx_contents.nonce || '0'),
+        chainId: 1, // Ethereum mainnet
         blockNumber: 0, // Not available in pending tx
         blockHash: undefined,
         confirmations: 0,
